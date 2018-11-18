@@ -22,7 +22,8 @@ References
 :Date created: 2018-11-16 오후 5:28
 """
 import pyqtgraph as pg
-from numpy import ndarray, linspace, arange
+from typing import Tuple
+from numpy import ndarray, linspace, array, arange
 from PyQt5.QtCore import Qt, QRectF
 from PyQt5.QtGui import QApplication
 
@@ -185,23 +186,29 @@ def _imagesc_pg_colormap(colormap_str):
     return pos, colors
 
 
-class PgImageViewOk(pg.ImageView):
+class PgImageViewROI(pg.ImageView):
     r"""ImageView 에 Mouse 명령을 추가 한다."""
 
     def __init__(self, *args, **kwargs):
         r"""PgImageViewOk를 초기화한다."""
         super().__init__(*args, **kwargs)
-        self.font_family = 'Courier New'
-        self.font_size = '4'
-        self.value_color = '#0581FF'
+        self.font_family: str = 'Courier New'
+        self.font_size: str = '4'
+        self.value_color: str = '#0581FF'
+        self.scale_x: float = 1.0
+        self.scale_y: float = 1.0
+        self.axis_x: ndarray = array([])
+        self.axis_y: ndarray = array([])
         self.ui.roiBtn.hide()
         self.ui.menuBtn.hide()
-        self.scale_x = 1.0
-        self.scale_y = 1.0
 
     def set_scale(self, scale_x: float, scale_y: float):
         self.scale_x = scale_x
         self.scale_y = scale_y
+
+    def set_axis(self, axis_x: ndarray, axis_y: ndarray):
+        self.axis_x = axis_x
+        self.axis_y = axis_y
 
     def size_of_roi(self):
         r"""그림의 Pixel을 1로 계산 했을 때 화면에 그릴 Data Marker(ROI)의 크기를 계산한다."""
@@ -252,8 +259,10 @@ class PgImageViewOk(pg.ImageView):
             text = pg.TextItem(
                 html=(
                     f'<span style="font-family: {self.font_family};">' +
-                    self.html_of_data_marker_name('[X,Y]') +
+                    self.html_of_data_marker_name('PIXEL[X,Y]') +
                     self.html_of_data_marker_value(f'[{data_point_x} {data_point_y}]') + '<br>' +
+                    self.html_of_data_marker_name('AXIS [X,Y]') +
+                    self.html_of_data_marker_value(f'[{self.axis_x[data_point_x]:6g} {self.axis_y[data_point_y]:6g}]') + '<br>' +
                     self.html_of_data_marker_name('Value') +
                     self.html_of_data_marker_value(val_point) + '<br>' +
                     self.html_of_data_marker_name('[R,G,B]') +
@@ -289,23 +298,54 @@ class PgImageViewOk(pg.ImageView):
         self.view.setRange(QRectF(0.0, 0.0, float(self.image.shape[1]), float(self.image.shape[0])))
 
 
-def imagesc_pg(*arg, colormap=None, title='', xlabel='', ylabel='', colorbar=False):
+class PgUserAxisItem(pg.AxisItem):
+    """입력받은 Axis가 표시되도록 linkedViewChanged을 Overide한다."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.offset: float = 0.0  # pixel의 중앙에 axis 값이 표시되도록 보정
+        self.delta: float = 1.0
+        self.value_of_view_axis_0: float = 0.0
+
+    def set_axis(self, value_of_view_axis_0, delta, scale):
+        self.value_of_view_axis_0 = value_of_view_axis_0
+        self.delta = delta * scale
+        self.offset = -delta/2
+
+    def custom_range(self, newRange, inverted: bool):
+        value_first = newRange[0] * self.delta + self.value_of_view_axis_0 + self.offset
+        value_end = newRange[1] * self.delta + self.value_of_view_axis_0 + self.offset
+
+        if inverted:
+            return value_end, value_first
+        else:
+            return value_first, value_end
+
+    def linkedViewChanged(self, view, newRange=None):
+        if self.orientation in ['right', 'left']:
+            newRange = view.viewRange()[1]
+            self.setRange(*self.custom_range(newRange, view.yInverted()))
+        else:
+            newRange = view.viewRange()[0]
+            self.setRange(*self.custom_range(newRange, view.xInverted()))
+
+
+def imagesc_pg(*arg, title='', xlabel='', ylabel='', colormap=None, colorbar=False):
     r"""Implement Imagesc using pyqtgraph
 
     return을 받지 않으면 figure 창이 사라진다.
 
     Parameters
     ----------
-    colormap : str, optional
-        ['Grey', 'Grey_r', ,'jet', 'parula', None] (the default is 'None')
     title : str
         title
     xlabel : str
         xlabel
     ylabel : str
         ylabel
+    colormap : str, optional
+        ['Grey', 'Grey_r', ,'jet', 'parula', None] (the default is 'None')
     colorbar : bool
-        colobar
+        colorbar
 
     Returns
     -------
@@ -317,19 +357,36 @@ def imagesc_pg(*arg, colormap=None, title='', xlabel='', ylabel='', colorbar=Fal
     pg.setConfigOption('foreground', 'k')
     pg.setConfigOptions(imageAxisOrder='row-major')
 
-    if len(arg) == 1:
+    if (len(arg) == 1) or isinstance(arg[1], str):
         data = arg[0]
         nr = data.shape[0]
         nc = data.shape[1]
         col_axis = arange(nc)
         row_axis = arange(nr)
-    elif len(arg) == 3 and type(arg[2]) == ndarray:
+        title_idx = 1
+    elif len(arg) >= 3 and isinstance(arg[2], ndarray):
         data = arg[2]
+        nr = data.shape[0]
+        nc = data.shape[1]
         col_axis = arg[0]
         row_axis = arg[1]
+        title_idx = 3
     else:
         print('Plz Check argument of imagesc_pg')
         return
+
+    if len(col_axis) != nc or len(row_axis) != nr:
+        print('check size of axis and data')
+        return
+
+    try:
+        title = arg[title_idx]
+        xlabel = arg[title_idx + 1]
+        ylabel = arg[title_idx + 2]
+        colormap = arg[title_idx + 3]
+        colorbar = arg[title_idx + 4]
+    except IndexError:
+        pass
 
     if colormap and data.ndim > 2:
         import sys
@@ -340,21 +397,32 @@ def imagesc_pg(*arg, colormap=None, title='', xlabel='', ylabel='', colorbar=Fal
     diff_y = row_axis[1] - row_axis[0]
 
     if diff_x > diff_y:
-        scale = (1.0, diff_y/diff_x)
+        scale = (1.0, abs(diff_y/diff_x))
     else:
-        scale = (diff_x/diff_y, 1.0)
+        scale = (abs(diff_x/diff_y), 1.0)
 
-    imv = PgImageViewOk(
+    axis_bottom = PgUserAxisItem(orientation='bottom')
+    axis_bottom.set_axis(col_axis[0], diff_x, 1.0/scale[0])
+
+    axis_left = PgUserAxisItem(orientation='left')
+    axis_left.set_axis(row_axis[0], diff_y, 1.0/scale[1])
+
+    imv = PgImageViewROI(
         view=pg.PlotItem(
             title=title,
-            labels={'left': ylabel, 'bottom': xlabel}
+            labels={'left': ylabel, 'bottom': xlabel},
+            axisItems={
+                'left': axis_left,
+                'bottom': axis_bottom}
         ))
 
     imv.set_scale(*scale)
+    imv.set_axis(col_axis, row_axis)
 
     imv.show()
 
     imv.setImage(data, scale=scale)
+
     if colormap:
         imv.setColorMap(pg.ColorMap(*_imagesc_pg_colormap(colormap), mode=pg.ColorMap.RGB))
     imv.getImageItem().mouseDoubleClickEvent = imv.func_double_click
