@@ -461,21 +461,21 @@ class PgUserAxisItem(pg.AxisItem):
             self.setRange(*self.custom_range(newRange, view.xInverted()))
 
 
-def imagesc_pg(*arg, title='', xlabel='', ylabel='', colormap='viridis', colorbar=False):
+def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', , colorbar=False):
     r"""Implement Imagesc using pyqtgraph
 
     return을 받지 않으면 figure 창이 사라진다.
 
     Parameters
     ----------
+    colormap : str, optional
+        ['Grey', 'Grey_r', ,'jet', 'parula', 'viridis', ..., None] (the default is 'viridis')
     title : str
         title
     xlabel : str
         xlabel
     ylabel : str
         ylabel
-    colormap : str, optional
-        ['Grey', 'Grey_r', ,'jet', 'parula', 'viridis', ..., None] (the default is 'viridis')
     colorbar : bool
         colorbar
 
@@ -489,7 +489,7 @@ def imagesc_pg(*arg, title='', xlabel='', ylabel='', colormap='viridis', colorba
     pg.setConfigOption('foreground', 'k')
     pg.setConfigOptions(imageAxisOrder='row-major')
 
-    if (len(arg) == 1) or isinstance(arg[1], str):
+    if (len(arg) == 1) or isinstance(arg[1], str) or arg[1] is None:
         data = arg[0]
         nr = data.shape[0]
         nc = data.shape[1]
