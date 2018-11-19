@@ -512,10 +512,10 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', , color
         return
 
     try:
-        title = arg[title_idx]
-        xlabel = arg[title_idx + 1]
-        ylabel = arg[title_idx + 2]
-        colormap = arg[title_idx + 3]
+        colormap = arg[title_idx]
+        title = arg[title_idx + 1]
+        xlabel = arg[title_idx + 2]
+        ylabel = arg[title_idx + 3]
         colorbar = arg[title_idx + 4]
     except IndexError:
         pass
