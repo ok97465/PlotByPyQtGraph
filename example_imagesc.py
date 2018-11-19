@@ -18,29 +18,29 @@ if __name__ == '__main__':
     x = linspace(-54.7321, 5812.512, num=data.shape[1])
     y = arange(data.shape[0]) * 1
     imv_color = imagesc_pg(
-        x, y, data, title='Color Image', xlabel='Column', ylabel='Row', colormap='jet', colorbar=True)
+        x, y, data, colormap='jet', title='Color Image', xlabel='Column', ylabel='Row', colorbar=True)
 
     data = mean(imread(r'images/example_imagesc_grey.jpg'), axis=2)
 
     x = arange(data.shape[1]) * 1
     y = arange(data.shape[0]) * 1
     imv_gray = imagesc_pg(
-        x, y, data, title='Gray Image with parula Colormap', xlabel='Column', ylabel='Row', colormap='parula', colorbar=True)
+        x, y, data, colormap='viridis', title='Gray Image with viridis Colormap', xlabel='Column', ylabel='Row', colorbar=True)
 
-    data = randn(2, 3)
+    data = randn(128, 128)
     x = arange(data.shape[1]) * 5
     y = arange(data.shape[0]) * 1
 
     imv_gray0 = imagesc_pg(
         x, y, data,
-        title='Gray Image with gray Colormap', xlabel='Column', ylabel='Row', colormap='gray', colorbar=True)
+        colormap='gray', title='Gray Image with gray Colormap', xlabel='Column', ylabel='Row', colorbar=True)
 
     imv_gray1 = imagesc_pg(
         data,
-        'Gray Image with parula Colormap', 'Column', 'Row', 'parula', False)
+        'parula', 'Gray Image with parula Colormap', 'Column', 'Row', False)
 
     imv_gray2 = imagesc_pg(
         x, y, data,
-        'Gray Image with jet Colormap', 'Column', 'Row', 'jet', True)
+        'jet', 'Gray Image with jet Colormap', 'Column', 'Row', True)
     
     print(3)

@@ -23,9 +23,97 @@ References
 """
 import pyqtgraph as pg
 from typing import Tuple
-from numpy import ndarray, linspace, array, arange
+from numpy import ndarray, linspace, array, arange, uint8
 from PyQt5.QtCore import Qt, QRectF
 from PyQt5.QtGui import QApplication
+
+
+def _cmapToColormap(cmap, nTicks=16):
+    """
+    author: Sebastian Hoefer
+
+    The function 'cmapToColormap' converts the Matplotlib format to the internal
+    format of PyQtGraph that is used in the GradientEditorItem. The function
+    itself has no dependencies on Matplotlib! Hence the weird if clauses with
+    'hasattr' instead of 'isinstance'.
+    The class 'MplCmapImageView' demonstrates, how to integrate converted
+    colormaps into a GradientEditorWidget. This is just monkey patched into the
+    class and should be implemented properly into the GradientEditorItem's
+    constructor. But this is one way to do it, if you don't want to touch your
+    PyQtGraph installation.
+
+    Converts a Matplotlib cmap to pyqtgraphs colormaps. No dependency on matplotlib.
+
+    Parameters:
+    *cmap*: Cmap object. Imported from matplotlib.cm.*
+    *nTicks*: Number of ticks to create when dict of functions is used. Otherwise unused.
+    """
+    import numpy as np 
+    import collections
+    from matplotlib.colors import ListedColormap, LinearSegmentedColormap, makeMappingArray
+
+    # Case #1: a dictionary with 'red'/'green'/'blue' values as list of ranges (e.g. 'jet')
+    # The parameter 'cmap' is a 'matplotlib.colors.LinearSegmentedColormap' instance ...
+    if hasattr(cmap, '_segmentdata'):
+        colordata = getattr(cmap, '_segmentdata')
+        if ('red' in colordata) and isinstance(colordata['red'], collections.Sequence):
+
+            # collect the color ranges from all channels into one dict to get unique indices
+            posDict = {}
+            for idx, channel in enumerate(('red', 'green', 'blue')):
+                for colorRange in colordata[channel]:
+                    posDict.setdefault(colorRange[0], [-1, -1, -1])[idx] = colorRange[2]
+
+            indexList = list(posDict.keys())
+            indexList.sort()
+            # interpolate missing values (== -1)
+            for channel in range(3):  # R,G,B
+                startIdx = indexList[0]
+                emptyIdx = []
+                for curIdx in indexList:
+                    if posDict[curIdx][channel] == -1:
+                        emptyIdx.append(curIdx)
+                    elif curIdx != indexList[0]:
+                        for eIdx in emptyIdx:
+                            rPos = (eIdx - startIdx) / (curIdx - startIdx)
+                            vStart = posDict[startIdx][channel]
+                            vRange = (posDict[curIdx][channel] - posDict[startIdx][channel])
+                            posDict[eIdx][channel] = rPos * vRange + vStart
+                        startIdx = curIdx
+                        del emptyIdx[:]
+            for channel in range(3):  # R,G,B
+                for curIdx in indexList:
+                    posDict[curIdx][channel] *= 255
+
+            rgb_list = [[i, posDict[i]] for i in indexList]
+
+        # Case #2: a dictionary with 'red'/'green'/'blue' values as functions (e.g. 'gnuplot')
+        elif ('red' in colordata) and isinstance(colordata['red'], collections.Callable):
+            indices = np.linspace(0., 1., nTicks)
+            luts = [np.clip(np.array(colordata[rgb](indices), dtype=np.float), 0, 1) * 255 \
+                    for rgb in ('red', 'green', 'blue')]
+            rgb_list = zip(indices, list(zip(*luts)))
+
+    # If the parameter 'cmap' is a 'matplotlib.colors.ListedColormap' instance, with the attributes 'colors' and 'N'
+    elif hasattr(cmap, 'colors') and hasattr(cmap, 'N'):
+        colordata = getattr(cmap, 'colors')
+        # Case #3: a list with RGB values (e.g. 'seismic')
+        if len(colordata[0]) == 3:
+            indices = np.linspace(0., 1., len(colordata))
+            scaledRgbTuples = [(rgbTuple[0] * 255, rgbTuple[1] * 255, rgbTuple[2] * 255) for rgbTuple in colordata]
+            rgb_list = zip(indices, scaledRgbTuples)
+
+        # Case #4: a list of tuples with positions and RGB-values (e.g. 'terrain')
+        # -> this section is probably not needed anymore!?
+        elif len(colordata[0]) == 2:
+            rgb_list = [(idx, (vals[0] * 255, vals[1] * 255, vals[2] * 255)) for idx, vals in colordata]
+
+    # Case #X: unknown format or datatype was the wrong object type
+    else:
+        raise ValueError("[cmapToColormap] Unknown cmap format or not a cmap!")
+
+    # Convert the RGB float values to RGBA integer values
+    return list([(pos, (int(r), int(g), int(b), 255)) for pos, (r, g, b) in rgb_list])
 
 
 def _imagesc_pg_colormap(colormap_str):
@@ -300,20 +388,31 @@ def _imagesc_pg_colormap(colormap_str):
             (249, 249,  24),
             (250, 250,  22),
             (250, 252, 21)
-            )
+        )
+        pos = linspace(0.0, 1.0, len(colors))
     elif colormap_str.lower() in ['gray', 'grey']:
         colors = ((0, 0, 0), (255, 255, 255))
+        pos = linspace(0.0, 1.0, len(colors))
     elif colormap_str.lower() in ['grey_r', 'grey_r']:
         colors = ((255, 255, 255), (0, 0, 0))
+        pos = linspace(0.0, 1.0, len(colors))
     else:
         try:
             from matplotlib import cm
             cm_matplotlib = cm.get_cmap(colormap_str)
-            colors = uint8(cm_matplotlib(range(256))[:, 0:3] * 256)
-        except ValueError:
-            colors = []
+            # if isinstance(cm_matplotlib, ListedColormap):
+            #     print(f'ListedColormap {cm_matplotlib.N}')
+            #     colors = uint8(cm_matplotlib(range(cm_matplotlib.N))[:, 0:3] * 256)
+            # if isinstance(cm_matplotlib, LinearSegmentedColormap):
+            #     print(1)
+            # else:
+            #     colors = uint8(cm_matplotlib(range(256))[:, 0:3] * 256)
 
-    pos = linspace(0.0, 1.0, len(colors))
+            pos, colors = zip(*_cmapToColormap(cm_matplotlib, nTicks=256))
+
+        except ValueError:
+            pos = []
+            colors = []
 
     return pos, colors
 
@@ -461,7 +560,7 @@ class PgUserAxisItem(pg.AxisItem):
             self.setRange(*self.custom_range(newRange, view.xInverted()))
 
 
-def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', , colorbar=False):
+def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorbar=False):
     r"""Implement Imagesc using pyqtgraph
 
     return을 받지 않으면 figure 창이 사라진다.
