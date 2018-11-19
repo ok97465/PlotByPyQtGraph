@@ -1,5 +1,5 @@
 # PlotByPyQtGraph
-PyqtGraph를 이용하여 Plot을 가속화한다.  
+PyqtGraph를 이용하여 Python의 Plot을 가속화한다.  
 PyQt5가 Backend로 동작되어야 한다.
 
 ## imagesc
