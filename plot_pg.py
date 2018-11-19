@@ -428,6 +428,7 @@ class PgImageViewROI(pg.ImageView):
         self.value_color: str = '#0581FF'
         self.scale_x: float = 1.0
         self.scale_y: float = 1.0
+        self.ratio_of_rect_size_to_pixel = 0.93
         self.axis_x: ndarray = array([])
         self.axis_y: ndarray = array([])
         self.ui.roiBtn.hide()
@@ -443,9 +444,15 @@ class PgImageViewROI(pg.ImageView):
 
     def size_of_roi(self):
         r"""그림의 Pixel을 1로 계산 했을 때 화면에 그릴 Data Marker(ROI)의 크기를 계산한다."""
-        size_x = self.scale_x
-        size_y = self.scale_y
+        size_x = (1 - 2 * self.ratio_of_rect_size_to_pixel) * self.scale_x
+        size_y = (1 - 2 * self.ratio_of_rect_size_to_pixel) * self.scale_y
         return pg.Point(size_x, size_y)
+
+    def pos_of_roi(self, data_point_x: int, data_point_y: int):
+        r"""그림의 Pixel을 1로 계산 했을 때 화면에 그릴 Data Marker(ROI)의 크기를 계산한다."""
+        x = (data_point_x + self.ratio_of_rect_size_to_pixel) * self.scale_x
+        y = (data_point_y + self.ratio_of_rect_size_to_pixel) * self.scale_y
+        return x, y
 
     def html_of_data_marker_name(self, string):
         r"""Data Marker의 Text에 항목을 HTML로 변환하여 반환한다."""
@@ -454,6 +461,18 @@ class PgImageViewROI(pg.ImageView):
     def html_of_data_marker_value(self, string):
         r"""Data Marker의 Text에 값을 HTML로 변환하여 반환한다."""
         return f'<strong><font size="{self.font_size}"; color=#0581FF>{string}</font></strong>'
+
+    @staticmethod
+    def contrast_color(rgb_hex: str):
+        r"""배경색에서 잘보이는 색을 선택"""
+        luminance = (0.299 * int(rgb_hex[4:6], 16) + 0.587 * int(rgb_hex[6:8], 16) + 0.114 * int(rgb_hex[8:], 16))/255
+
+        if luminance > 0.5:
+            d = 30  # bright background - black color
+        else:
+            d = 200  # dark background - white color
+
+        return d, d, d
 
     def func_shift_left_click(self, event):
         """Shift를 누르고 마우스 왼쪽을 클릭하면 Data Marker를 표시한다.
@@ -482,7 +501,7 @@ class PgImageViewROI(pg.ImageView):
             rgb = f'[{int(rgb_hex[4:6], 16)} {int(rgb_hex[6:8], 16)} {int(rgb_hex[8:], 16)}]'
 
             roi = pg.ROI(
-                pos=(data_point_x*self.scale_x, data_point_y*self.scale_y),
+                pos=self.pos_of_roi(data_point_x, data_point_y), pen=self.contrast_color(rgb_hex),
                 size=self.size_of_roi(), movable=False, removable=True)
 
             roi.addTranslateHandle((0.5, 0.5))
