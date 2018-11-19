@@ -556,7 +556,12 @@ def imagesc_pg(*arg, title='', xlabel='', ylabel='', colormap='viridis', colorba
     imv.setImage(data, scale=scale)
 
     if colormap:
-        imv.setColorMap(pg.ColorMap(*_imagesc_pg_colormap(colormap), mode=pg.ColorMap.RGB))
+        color_pos, color = _imagesc_pg_colormap(colormap)
+        if len(color) > 0:
+            imv.setColorMap(pg.ColorMap(color_pos, color, mode=pg.ColorMap.RGB))
+        else:
+            print('check colormap')
+
     imv.getImageItem().mouseDoubleClickEvent = imv.func_double_click
     imv.getImageItem().mouseClickEvent = imv.func_shift_left_click
 
