@@ -37,10 +37,10 @@ if __name__ == '__main__':
 
     imv_gray1 = imagesc_pg(
         data,
-        'Gray Image with gray Colormap', 'Column', 'Row', 'parula', False)
+        'Gray Image with parula Colormap', 'Column', 'Row', 'parula', False)
 
     imv_gray2 = imagesc_pg(
         x, y, data,
-        'Gray Image with gray Colormap', 'Column', 'Row', 'jet', True)
+        'Gray Image with jet Colormap', 'Column', 'Row', 'jet', True)
     
     print(3)
