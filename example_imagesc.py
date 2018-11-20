@@ -41,6 +41,7 @@ if __name__ == '__main__':
 
     imv_gray2 = imagesc_pg(
         x, y, data,
-        'jet', 'Gray Image with jet Colormap', 'Column', 'Row', True)
+        'jet', 'Gray Image with jet Colormap', 'Column', 'Row', True,
+        {'font_family': 'Courier New', 'title_font_size': '35pt', 'label_font_size': 30, 'tick_font_size': 10, 'tick_thickness': 2, 'tickTextOffset': 10})
     
     print(3)

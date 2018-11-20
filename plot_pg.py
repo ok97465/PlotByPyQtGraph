@@ -578,8 +578,39 @@ class PgUserAxisItem(pg.AxisItem):
             newRange = view.viewRange()[0]
             self.setRange(*self.custom_range(newRange, view.xInverted()))
 
+    def set_style(self, style=None):
+        """PgUserAxisItem의 모양을 설정한다.
+        
+        Parameters
+        ----------
+        style : dict, optional
+            {'font_family': 'Courier New', 'label_font_size': 15, 'tick_font_size': 15, 'tick_thickness': 2, 'tickTextOffset': 10}
+        
+        """
+        from PyQt5.QtGui import QFont
+        if style is None:
+            return
 
-def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorbar=False):
+        if 'tick_thickness' in style:
+            self.setPen(pg.getConfigOption('foreground'), width=style['tick_thickness'])
+        if 'tickTextOffset' in style:
+            self.setStyle(tickTextOffset=style['tickTextOffset'])
+        if 'font_family' in style and 'tick_font_size' in style:
+            self.setTickFont(QFont(style['font_family'], style['tick_font_size']))
+        elif 'font_family' in style:
+            self.setTickFont(QFont(style['font_family']))
+        elif 'tick_font_size' in style:
+            self.setTickFont(QFont('Courier New', style['tick_font_size']))
+        
+        if 'font_family' in style and 'label_font_size' in style:
+            self.label.setFont(QFont(style['font_family'], style['label_font_size']))
+        elif 'font_family' in style:
+            self.label.setFont(QFont(style['font_family']))
+        elif 'label_font_size' in style:
+            self.label.setFont(QFont('Courier New', style['label_font_size']))
+
+
+def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorbar=False, style=None):
     r"""Implement Imagesc using pyqtgraph
 
     return을 받지 않으면 figure 창이 사라진다.
@@ -596,6 +627,8 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
         ylabel
     colorbar : bool
         colorbar
+    style : dict, optional
+        {'font_family': 'Courier New', 'title_font_size': '15pt', 'label_font_size': 15, 'tick_font_size': 15, 'tick_thickness': 2, 'tickTextOffset': 10}
 
     Returns
     -------
@@ -635,6 +668,7 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
         xlabel = arg[title_idx + 2]
         ylabel = arg[title_idx + 3]
         colorbar = arg[title_idx + 4]
+        style = arg[title_idx + 5]
     except IndexError:
         pass
 
@@ -653,18 +687,24 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
 
     axis_bottom = PgUserAxisItem(orientation='bottom')
     axis_bottom.set_axis(col_axis[0], diff_x, 1.0/scale[0])
+    axis_bottom.set_style(style)
 
     axis_left = PgUserAxisItem(orientation='left')
     axis_left.set_axis(row_axis[0], diff_y, 1.0/scale[1])
+    axis_left.set_style(style)
 
-    imv = PgImageViewROI(
-        view=pg.PlotItem(
+    view = pg.PlotItem(
             title=title,
             labels={'left': ylabel, 'bottom': xlabel},
             axisItems={
                 'left': axis_left,
                 'bottom': axis_bottom}
-        ))
+        )
+
+    if style and 'title_font_size' in style:
+        view.setTitle(title, size=style['title_font_size'])
+
+    imv = PgImageViewROI(view=view)
 
     imv.set_scale(*scale)
     imv.set_axis(col_axis, row_axis)
