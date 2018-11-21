@@ -628,7 +628,7 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
     colorbar : bool
         colorbar
     style : dict, optional
-        {'font_family': 'Courier New', 'title_font_size': '15pt', 'label_font_size': 15, 'tick_font_size': 15, 'tick_thickness': 2, 'tickTextOffset': 10}
+        {'font_family': 'Courier New', 'title_font_size': '15pt', 'title_bold': True, 'label_font_size': 15, 'tick_font_size': 15, 'tick_thickness': 2, 'tickTextOffset': 10}
 
     Returns
     -------
@@ -671,6 +671,9 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
         style = arg[title_idx + 5]
     except IndexError:
         pass
+    if style is None:
+        style = {'font_family': 'Malgun Gothic', 'title_font_size': '17pt', 'title_bold': True, 'label_font_size': 15,
+                 'tick_font_size': 10, 'tick_thickness': 2, 'tickTextOffset': 5}
 
     if colormap and data.ndim > 2:
         import sys
@@ -701,7 +704,11 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
                 'bottom': axis_bottom}
         )
 
-    if style and 'title_font_size' in style:
+    if style and ('title_font_size' in style and 'title_bold' in style):
+        view.setTitle(title, size=style['title_font_size'], bold=style['title_bold'])
+    elif style and 'title_bold' in style:
+        view.setTitle(title, bold=style['title_bold'])
+    elif style and 'title_font_size' in style:
         view.setTitle(title, size=style['title_font_size'])
 
     imv = PgImageViewROI(view=view)

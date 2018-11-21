@@ -27,7 +27,7 @@ if __name__ == '__main__':
     imv_gray = imagesc_pg(
         x, y, data, colormap='viridis', title='Gray Image with viridis Colormap', xlabel='Column', ylabel='Row', colorbar=True)
 
-    data = randn(128, 128)
+    data = randn(2048, 2048)
     x = arange(data.shape[1]) * 5
     y = arange(data.shape[0]) * 1
 
@@ -42,6 +42,7 @@ if __name__ == '__main__':
     imv_gray2 = imagesc_pg(
         x, y, data,
         'jet', 'Gray Image with jet Colormap', 'Column', 'Row', True,
-        {'font_family': 'Courier New', 'title_font_size': '35pt', 'label_font_size': 30, 'tick_font_size': 10, 'tick_thickness': 2, 'tickTextOffset': 10})
+        {'font_family': 'Malgun Gothic', 'title_font_size': '17pt', 'title_bold': True, 'label_font_size': 15,
+         'tick_font_size': 10, 'tick_thickness': 2, 'tickTextOffset': 5})
     
     print(3)
