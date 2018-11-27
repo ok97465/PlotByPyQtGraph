@@ -21,6 +21,7 @@ References
 :author: ok97465
 :Date created: 2018-11-16 오후 5:28
 """
+import numpy as np
 import pyqtgraph as pg
 from typing import Tuple
 from numpy import ndarray, linspace, array, arange, uint8
@@ -544,8 +545,8 @@ class PgImageViewROI(pg.ImageView):
 
     def func_double_click(self, event):
         """Double 클릭 시 이미지를 전체 뷰로 본다."""
-        # self.view.autoRange()
-        self.view.setRange(QRectF(0.0, 0.0, float(self.image.shape[1]), float(self.image.shape[0])))
+        self.view.autoRange()
+        # self.view.setRange(QRectF(0.0, 0.0, float(self.image.shape[1]), float(self.image.shape[0])))
 
 
 class PgUserAxisItem(pg.AxisItem):
@@ -672,8 +673,8 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
     except IndexError:
         pass
     if style is None:
-        style = {'font_family': 'Malgun Gothic', 'title_font_size': '17pt', 'title_bold': True, 'label_font_size': 15,
-                 'tick_font_size': 10, 'tick_thickness': 2, 'tickTextOffset': 5}
+        style = {'font_family': 'Malgun Gothic', 'title_font_size': '16pt', 'title_bold': True, 'label_font_size': 14,
+                 'tick_font_size': 11, 'tick_thickness': 2, 'tickTextOffset': 5}
 
     if colormap and data.ndim > 2:
         import sys
@@ -718,7 +719,7 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
 
     imv.show()
 
-    imv.setImage(data, scale=scale)
+    imv.setImage(data, scale=scale, autoHistogramRange=False, autoLevels=False, levels=(np.min(data), np.max(data)))
 
     if colormap:
         color_pos, color = _imagesc_pg_colormap(colormap)
