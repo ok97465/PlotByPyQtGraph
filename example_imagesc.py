@@ -4,7 +4,7 @@ import pyqtgraph as pg
 from matplotlib.pyplot import imread, ion, plot, close
 from plot_pg import imagesc_pg
 from numpy import arange, mean, linspace
-from numpy.random_intel import randn
+from numpy.random import randn
 
 ion()
 plot([1,2,3])
