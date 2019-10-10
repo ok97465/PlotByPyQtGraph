@@ -17,16 +17,17 @@ References
 .. [] 학위 논문: 학위자명, "논문제목", 대학원 이름 석사 학위논문, 1990 
 .. [] 저널 논문: 저자. "논문제목". 저널명, . pp.
 
-:File name: plot_pg.py
+:File name: plot_qt.py
 :author: ok97465
 :Date created: 2018-11-16 오후 5:28
 """
 import numpy as np
 import pyqtgraph as pg
-from typing import Tuple
-from numpy import ndarray, linspace, array, arange, uint8
-from PyQt5.QtCore import Qt, QRectF
-from PyQt5.QtGui import QApplication
+from typing import Tuple, Iterable
+from numpy import ndarray, linspace, array, arange
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QApplication
 
 
 def _cmapToColormap(cmap, nTicks=16):
@@ -49,21 +50,24 @@ def _cmapToColormap(cmap, nTicks=16):
     *cmap*: Cmap object. Imported from matplotlib.cm.*
     *nTicks*: Number of ticks to create when dict of functions is used. Otherwise unused.
     """
-    import numpy as np 
+    import numpy as np
     import collections
-    from matplotlib.colors import ListedColormap, LinearSegmentedColormap, makeMappingArray
+    from matplotlib.colors import ListedColormap, LinearSegmentedColormap, \
+        makeMappingArray
 
     # Case #1: a dictionary with 'red'/'green'/'blue' values as list of ranges (e.g. 'jet')
     # The parameter 'cmap' is a 'matplotlib.colors.LinearSegmentedColormap' instance ...
     if hasattr(cmap, '_segmentdata'):
         colordata = getattr(cmap, '_segmentdata')
-        if ('red' in colordata) and isinstance(colordata['red'], collections.Sequence):
+        if ('red' in colordata) and isinstance(colordata['red'],
+                                               collections.Sequence):
 
             # collect the color ranges from all channels into one dict to get unique indices
             posDict = {}
             for idx, channel in enumerate(('red', 'green', 'blue')):
                 for colorRange in colordata[channel]:
-                    posDict.setdefault(colorRange[0], [-1, -1, -1])[idx] = colorRange[2]
+                    posDict.setdefault(colorRange[0], [-1, -1, -1])[idx] = \
+                    colorRange[2]
 
             indexList = list(posDict.keys())
             indexList.sort()
@@ -78,7 +82,8 @@ def _cmapToColormap(cmap, nTicks=16):
                         for eIdx in emptyIdx:
                             rPos = (eIdx - startIdx) / (curIdx - startIdx)
                             vStart = posDict[startIdx][channel]
-                            vRange = (posDict[curIdx][channel] - posDict[startIdx][channel])
+                            vRange = (posDict[curIdx][channel] -
+                                      posDict[startIdx][channel])
                             posDict[eIdx][channel] = rPos * vRange + vStart
                         startIdx = curIdx
                         del emptyIdx[:]
@@ -89,10 +94,13 @@ def _cmapToColormap(cmap, nTicks=16):
             rgb_list = [[i, posDict[i]] for i in indexList]
 
         # Case #2: a dictionary with 'red'/'green'/'blue' values as functions (e.g. 'gnuplot')
-        elif ('red' in colordata) and isinstance(colordata['red'], collections.Callable):
+        elif ('red' in colordata) and isinstance(colordata['red'],
+                                                 collections.Callable):
             indices = np.linspace(0., 1., nTicks)
-            luts = [np.clip(np.array(colordata[rgb](indices), dtype=np.float), 0, 1) * 255 \
-                    for rgb in ('red', 'green', 'blue')]
+            luts = [
+                np.clip(np.array(colordata[rgb](indices), dtype=np.float), 0,
+                        1) * 255 \
+                for rgb in ('red', 'green', 'blue')]
             rgb_list = zip(indices, list(zip(*luts)))
 
     # If the parameter 'cmap' is a 'matplotlib.colors.ListedColormap' instance, with the attributes 'colors' and 'N'
@@ -101,24 +109,28 @@ def _cmapToColormap(cmap, nTicks=16):
         # Case #3: a list with RGB values (e.g. 'seismic')
         if len(colordata[0]) == 3:
             indices = np.linspace(0., 1., len(colordata))
-            scaledRgbTuples = [(rgbTuple[0] * 255, rgbTuple[1] * 255, rgbTuple[2] * 255) for rgbTuple in colordata]
+            scaledRgbTuples = [
+                (rgbTuple[0] * 255, rgbTuple[1] * 255, rgbTuple[2] * 255) for
+                rgbTuple in colordata]
             rgb_list = zip(indices, scaledRgbTuples)
 
         # Case #4: a list of tuples with positions and RGB-values (e.g. 'terrain')
         # -> this section is probably not needed anymore!?
         elif len(colordata[0]) == 2:
-            rgb_list = [(idx, (vals[0] * 255, vals[1] * 255, vals[2] * 255)) for idx, vals in colordata]
+            rgb_list = [(idx, (vals[0] * 255, vals[1] * 255, vals[2] * 255))
+                        for idx, vals in colordata]
 
     # Case #X: unknown format or datatype was the wrong object type
     else:
         raise ValueError("[cmapToColormap] Unknown cmap format or not a cmap!")
 
     # Convert the RGB float values to RGBA integer values
-    return list([(pos, (int(r), int(g), int(b), 255)) for pos, (r, g, b) in rgb_list])
+    return list(
+        [(pos, (int(r), int(g), int(b), 255)) for pos, (r, g, b) in rgb_list])
 
 
-def _imagesc_pg_colormap(colormap_str):
-    r"""imagesc_pg 에서 사용할 colormap 을 계산 한다.
+def _imagescqt_colormap(colormap_str):
+    r"""imagescqt 에서 사용할 colormap 을 계산 한다.
 
     Parameters
     ----------
@@ -133,55 +145,55 @@ def _imagesc_pg_colormap(colormap_str):
     """
     if colormap_str.lower() == 'parula':
         colors = (
-            (62,  39, 169),
-            (63,  39, 172),
-            (63,  40, 175),
-            (64,  41, 178),
-            (64,  42, 181),
-            (65,  43, 184),
-            (65,  44, 187),
-            (65,  45, 189),
-            (66,  46, 192),
-            (66,  47, 195),
-            (67,  48, 198),
-            (67,  49, 200),
-            (68,  50, 203),
-            (68,  51, 206),
-            (69,  53, 209),
-            (69,  54, 211),
-            (69,  55, 214),
-            (70,  56, 216),
-            (70,  57, 218),
-            (70,  58, 220),
-            (70,  60, 223),
-            (71,  61, 224),
-            (71,  62, 226),
-            (71,  64, 228),
-            (71,  65, 230),
-            (71,  67, 231),
-            (72,  68, 233),
-            (72,  69, 234),
-            (72,  71, 236),
-            (72,  72, 237),
-            (72,  74, 238),
-            (72,  75, 239),
-            (72,  76, 241),
-            (72,  78, 242),
-            (72,  79, 243),
-            (72,  81, 244),
-            (72,  82, 245),
-            (72,  83, 246),
-            (72,  85, 247),
-            (72,  86, 248),
-            (72,  88, 248),
-            (71,  89, 249),
-            (71,  90, 250),
-            (71,  92, 251),
-            (71,  93, 251),
-            (71,  95, 252),
-            (70,  96, 252),
-            (70,  97, 253),
-            (69,  99, 253),
+            (62, 39, 169),
+            (63, 39, 172),
+            (63, 40, 175),
+            (64, 41, 178),
+            (64, 42, 181),
+            (65, 43, 184),
+            (65, 44, 187),
+            (65, 45, 189),
+            (66, 46, 192),
+            (66, 47, 195),
+            (67, 48, 198),
+            (67, 49, 200),
+            (68, 50, 203),
+            (68, 51, 206),
+            (69, 53, 209),
+            (69, 54, 211),
+            (69, 55, 214),
+            (70, 56, 216),
+            (70, 57, 218),
+            (70, 58, 220),
+            (70, 60, 223),
+            (71, 61, 224),
+            (71, 62, 226),
+            (71, 64, 228),
+            (71, 65, 230),
+            (71, 67, 231),
+            (72, 68, 233),
+            (72, 69, 234),
+            (72, 71, 236),
+            (72, 72, 237),
+            (72, 74, 238),
+            (72, 75, 239),
+            (72, 76, 241),
+            (72, 78, 242),
+            (72, 79, 243),
+            (72, 81, 244),
+            (72, 82, 245),
+            (72, 83, 246),
+            (72, 85, 247),
+            (72, 86, 248),
+            (72, 88, 248),
+            (71, 89, 249),
+            (71, 90, 250),
+            (71, 92, 251),
+            (71, 93, 251),
+            (71, 95, 252),
+            (70, 96, 252),
+            (70, 97, 253),
+            (69, 99, 253),
             (69, 100, 254),
             (68, 102, 254),
             (68, 103, 254),
@@ -300,94 +312,94 @@ def _imagesc_pg_colormap(colormap_str):
             (107, 206, 106),
             (111, 206, 103),
             (114, 205, 100),
-            (118, 205,  97),
-            (122, 205,  94),
-            (125, 205,  92),
-            (129, 205,  89),
-            (133, 204,  86),
-            (136, 204,  84),
-            (140, 204,  81),
-            (144, 203,  78),
-            (147, 203,  75),
-            (151, 203,  73),
-            (154, 202,  70),
-            (158, 202,  67),
-            (161, 201,  65),
-            (165, 201,  62),
-            (168, 200,  60),
-            (172, 200,  57),
-            (175, 199,  55),
-            (178, 198,  53),
-            (182, 198,  51),
-            (185, 197,  49),
-            (188, 197,  47),
-            (191, 196,  46),
-            (194, 195,  44),
-            (197, 195,  42),
-            (200, 194,  41),
-            (203, 193,  40),
-            (206, 193,  40),
-            (209, 192,  39),
-            (212, 192,  39),
-            (215, 191,  40),
-            (217, 190,  40),
-            (220, 190,  41),
-            (223, 189,  41),
-            (225, 189,  42),
-            (228, 188,  43),
-            (230, 188,  45),
-            (233, 187,  46),
-            (235, 187,  48),
-            (237, 187,  51),
-            (240, 187,  53),
-            (242, 186,  55),
-            (244, 186,  57),
-            (246, 186,  59),
-            (248, 187,  61),
-            (250, 187,  62),
-            (252, 188,  63),
-            (253, 189,  62),
-            (255, 190,  61),
-            (255, 191,  60),
-            (255, 192,  59),
-            (255, 194,  58),
-            (255, 195,  57),
-            (255, 197,  56),
-            (255, 198,  55),
-            (255, 200,  54),
-            (255, 201,  53),
-            (255, 203,  52),
-            (254, 204,  51),
-            (254, 206,  50),
-            (254, 207,  49),
-            (253, 209,  48),
-            (252, 210,  47),
-            (252, 212,  47),
-            (251, 214,  46),
-            (250, 215,  45),
-            (250, 217,  44),
-            (249, 218,  43),
-            (248, 220,  43),
-            (248, 222,  42),
-            (247, 223,  41),
-            (247, 225,  40),
-            (246, 226,  40),
-            (246, 228,  39),
-            (246, 229,  39),
-            (246, 231,  38),
-            (246, 233,  37),
-            (246, 234,  36),
-            (246, 236,  35),
-            (246, 237,  34),
-            (246, 239,  33),
-            (247, 240,  32),
-            (247, 242,  31),
+            (118, 205, 97),
+            (122, 205, 94),
+            (125, 205, 92),
+            (129, 205, 89),
+            (133, 204, 86),
+            (136, 204, 84),
+            (140, 204, 81),
+            (144, 203, 78),
+            (147, 203, 75),
+            (151, 203, 73),
+            (154, 202, 70),
+            (158, 202, 67),
+            (161, 201, 65),
+            (165, 201, 62),
+            (168, 200, 60),
+            (172, 200, 57),
+            (175, 199, 55),
+            (178, 198, 53),
+            (182, 198, 51),
+            (185, 197, 49),
+            (188, 197, 47),
+            (191, 196, 46),
+            (194, 195, 44),
+            (197, 195, 42),
+            (200, 194, 41),
+            (203, 193, 40),
+            (206, 193, 40),
+            (209, 192, 39),
+            (212, 192, 39),
+            (215, 191, 40),
+            (217, 190, 40),
+            (220, 190, 41),
+            (223, 189, 41),
+            (225, 189, 42),
+            (228, 188, 43),
+            (230, 188, 45),
+            (233, 187, 46),
+            (235, 187, 48),
+            (237, 187, 51),
+            (240, 187, 53),
+            (242, 186, 55),
+            (244, 186, 57),
+            (246, 186, 59),
+            (248, 187, 61),
+            (250, 187, 62),
+            (252, 188, 63),
+            (253, 189, 62),
+            (255, 190, 61),
+            (255, 191, 60),
+            (255, 192, 59),
+            (255, 194, 58),
+            (255, 195, 57),
+            (255, 197, 56),
+            (255, 198, 55),
+            (255, 200, 54),
+            (255, 201, 53),
+            (255, 203, 52),
+            (254, 204, 51),
+            (254, 206, 50),
+            (254, 207, 49),
+            (253, 209, 48),
+            (252, 210, 47),
+            (252, 212, 47),
+            (251, 214, 46),
+            (250, 215, 45),
+            (250, 217, 44),
+            (249, 218, 43),
+            (248, 220, 43),
+            (248, 222, 42),
+            (247, 223, 41),
+            (247, 225, 40),
+            (246, 226, 40),
+            (246, 228, 39),
+            (246, 229, 39),
+            (246, 231, 38),
+            (246, 233, 37),
+            (246, 234, 36),
+            (246, 236, 35),
+            (246, 237, 34),
+            (246, 239, 33),
+            (247, 240, 32),
+            (247, 242, 31),
             (247, 243, 30),
-            (248, 245,  29),
-            (248, 246,  27),
-            (249, 247,  26),
-            (249, 249,  24),
-            (250, 250,  22),
+            (248, 245, 29),
+            (248, 246, 27),
+            (249, 247, 26),
+            (249, 249, 24),
+            (250, 250, 22),
             (250, 252, 21)
         )
         pos = linspace(0.0, 1.0, len(colors))
@@ -466,7 +478,9 @@ class PgImageViewROI(pg.ImageView):
     @staticmethod
     def contrast_color(rgb_hex: str):
         r"""배경색에서 잘보이는 색을 선택"""
-        luminance = (0.299 * int(rgb_hex[4:6], 16) + 0.587 * int(rgb_hex[6:8], 16) + 0.114 * int(rgb_hex[8:], 16))/255
+        luminance = (0.299 * int(rgb_hex[4:6], 16) + 0.587 * int(rgb_hex[6:8],
+                                                                 16) + 0.114 * int(
+            rgb_hex[8:], 16)) / 255
 
         if luminance > 0.5:
             d = 30  # bright background - black color
@@ -474,6 +488,17 @@ class PgImageViewROI(pg.ImageView):
             d = 200  # dark background - white color
 
         return d, d, d
+
+    def keyPressEvent(self, ev):
+        """Shift+S를 누르면 mouse Mode를 변경한다."""
+        if ((ev.key() == Qt.Key_S)
+                and (ev.modifiers() & Qt.ShiftModifier)):
+            if self.view.vb.state["mouseMode"] == self.view.vb.RectMode:
+                self.view.vb.setMouseMode(self.view.vb.PanMode)
+            else:
+                self.view.vb.setMouseMode(self.view.vb.RectMode)
+        else:
+            super(PgImageViewROI, self).keyPressEvent(ev)
 
     def func_shift_left_click(self, event):
         """Shift를 누르고 마우스 왼쪽을 클릭하면 Data Marker를 표시한다.
@@ -498,27 +523,32 @@ class PgImageViewROI(pg.ImageView):
             else:
                 val_point = f'{self.image[data_point_y, data_point_x]}'
 
-            rgb_hex = hex(self.getImageItem().getPixmap().toImage().pixel(data_point_x, data_point_y))
+            rgb_hex = hex(
+                self.getImageItem().getPixmap().toImage().pixel(data_point_x,
+                                                                data_point_y))
             rgb = f'[{int(rgb_hex[4:6], 16)} {int(rgb_hex[6:8], 16)} {int(rgb_hex[8:], 16)}]'
 
             roi = pg.ROI(
-                pos=self.pos_of_roi(data_point_x, data_point_y), pen=self.contrast_color(rgb_hex),
+                pos=self.pos_of_roi(data_point_x, data_point_y),
+                pen=self.contrast_color(rgb_hex),
                 size=self.size_of_roi(), movable=False, removable=True)
 
             roi.addTranslateHandle((0.5, 0.5))
             roi.setAcceptedMouseButtons(Qt.LeftButton)
             text = pg.TextItem(
                 html=(
-                    f'<span style="font-family: {self.font_family};">' +
-                    self.html_of_data_marker_name('PIXEL[X,Y]') +
-                    self.html_of_data_marker_value(f'[{data_point_x} {data_point_y}]') + '<br>' +
-                    self.html_of_data_marker_name('AXIS [X,Y]') +
-                    self.html_of_data_marker_value(f'[{self.axis_x[data_point_x]:6g} {self.axis_y[data_point_y]:6g}]') + '<br>' +
-                    self.html_of_data_marker_name('Value') +
-                    self.html_of_data_marker_value(val_point) + '<br>' +
-                    self.html_of_data_marker_name('[R,G,B]') +
-                    self.html_of_data_marker_value(rgb) +
-                    '</span>'
+                        f'<span style="font-family: {self.font_family};">' +
+                        self.html_of_data_marker_name('PIXEL[X,Y]') +
+                        self.html_of_data_marker_value(
+                            f'[{data_point_x} {data_point_y}]') + '<br>' +
+                        self.html_of_data_marker_name('AXIS [X,Y]') +
+                        self.html_of_data_marker_value(
+                            f'[{self.axis_x[data_point_x]:6g} {self.axis_y[data_point_y]:6g}]') + '<br>' +
+                        self.html_of_data_marker_name('Value') +
+                        self.html_of_data_marker_value(val_point) + '<br>' +
+                        self.html_of_data_marker_name('[R,G,B]') +
+                        self.html_of_data_marker_value(rgb) +
+                        '</span>'
                 ),
                 border={'color': "000000", 'width': 1},
                 anchor=(0, 1),
@@ -543,14 +573,32 @@ class PgImageViewROI(pg.ImageView):
                 item.setZValue(0)
         roi.setZValue(1)
 
-    def func_double_click(self, event):
+    def mouseDoubleClickEvent(self, ev):
         """Double 클릭 시 이미지를 전체 뷰로 본다."""
         self.view.autoRange()
-        # self.view.setRange(QRectF(0.0, 0.0, float(self.image.shape[1]), float(self.image.shape[0])))
+
+    def set_mouse_rect_mode(self):
+        """Mouse 행동을 Rect모드로 변경한다."""
+        self.view.vb.setMouseMode(self.view.vb.RectMode)
+
+    def set_limit_view(self, x_axis, y_axis):
+        """Panning과 Scale의 한계를 지정한다."""
+        x_range = max(x_axis) - min(x_axis)
+        y_range = max(y_axis) - min(y_axis)
+        max_range = max([x_range, y_range])
+
+        self.view.vb.setLimits(
+            xMin=min(x_axis) - max_range,
+            xMax=max(x_axis) + max_range,
+            yMin=min(y_axis) - max_range,
+            yMax=max(y_axis) + max_range,
+            maxXRange=x_range + (x_axis[1] - x_axis[0]),
+            maxYRange=y_range + (y_axis[1] - y_axis[0]))
 
 
 class PgUserAxisItem(pg.AxisItem):
     """입력받은 Axis가 표시되도록 linkedViewChanged을 Overide한다."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.offset: float = 0.0  # pixel의 중앙에 axis 값이 표시되도록 보정
@@ -560,11 +608,13 @@ class PgUserAxisItem(pg.AxisItem):
     def set_axis(self, value_of_view_axis_0, delta, scale):
         self.value_of_view_axis_0 = value_of_view_axis_0
         self.delta = delta * scale
-        self.offset = -delta/2
+        self.offset = -delta / 2
 
     def custom_range(self, newRange, inverted: bool):
-        value_first = newRange[0] * self.delta + self.value_of_view_axis_0 + self.offset
-        value_end = newRange[1] * self.delta + self.value_of_view_axis_0 + self.offset
+        value_first = newRange[
+                          0] * self.delta + self.value_of_view_axis_0 + self.offset
+        value_end = newRange[
+                        1] * self.delta + self.value_of_view_axis_0 + self.offset
 
         if inverted:
             return value_end, value_first
@@ -581,37 +631,41 @@ class PgUserAxisItem(pg.AxisItem):
 
     def set_style(self, style=None):
         """PgUserAxisItem의 모양을 설정한다.
-        
+
         Parameters
         ----------
         style : dict, optional
             {'font_family': 'Courier New', 'label_font_size': 15, 'tick_font_size': 15, 'tick_thickness': 2, 'tickTextOffset': 10}
-        
+
         """
         from PyQt5.QtGui import QFont
         if style is None:
             return
 
         if 'tick_thickness' in style:
-            self.setPen(pg.getConfigOption('foreground'), width=style['tick_thickness'])
+            self.setPen(pg.getConfigOption('foreground'),
+                        width=style['tick_thickness'])
         if 'tickTextOffset' in style:
             self.setStyle(tickTextOffset=style['tickTextOffset'])
         if 'font_family' in style and 'tick_font_size' in style:
-            self.setTickFont(QFont(style['font_family'], style['tick_font_size']))
+            self.setTickFont(
+                QFont(style['font_family'], style['tick_font_size']))
         elif 'font_family' in style:
             self.setTickFont(QFont(style['font_family']))
         elif 'tick_font_size' in style:
             self.setTickFont(QFont('Courier New', style['tick_font_size']))
-        
+
         if 'font_family' in style and 'label_font_size' in style:
-            self.label.setFont(QFont(style['font_family'], style['label_font_size']))
+            self.label.setFont(
+                QFont(style['font_family'], style['label_font_size']))
         elif 'font_family' in style:
             self.label.setFont(QFont(style['font_family']))
         elif 'label_font_size' in style:
             self.label.setFont(QFont('Courier New', style['label_font_size']))
 
 
-def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorbar=False, style=None):
+def imagescqt(*arg, colormap='viridis', title='', xlabel='', ylabel='',
+              colorbar=False, style=None):
     r"""Implement Imagesc using pyqtgraph
 
     return을 받지 않으면 figure 창이 사라진다.
@@ -633,7 +687,7 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
 
     Returns
     -------
-    pg.ImageView
+    (pg.ImageView, pg.PlotItem)
         return을 받지 않으면 Figure가 사라진다.
 
     """
@@ -656,7 +710,7 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
         row_axis = arg[1]
         title_idx = 3
     else:
-        print('Plz Check argument of imagesc_pg')
+        print('Plz Check argument of imagescqt')
         return
 
     if len(col_axis) != nc or len(row_axis) != nr:
@@ -672,9 +726,18 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
         style = arg[title_idx + 5]
     except IndexError:
         pass
+
+    style_default = {'font_family': 'D2Coding ligature',
+                     'title_font_size': '16pt',
+                     'title_bold': True, 'label_font_size': 14,
+                     'tick_font_size': 11, 'tick_thickness': 2,
+                     'tickTextOffset': 5}
+
     if style is None:
-        style = {'font_family': 'Malgun Gothic', 'title_font_size': '16pt', 'title_bold': True, 'label_font_size': 14,
-                 'tick_font_size': 11, 'tick_thickness': 2, 'tickTextOffset': 5}
+        style = style_default
+    else:
+        style_default.update(style)
+        style = style_default
 
     if colormap and data.ndim > 2:
         import sys
@@ -685,28 +748,29 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
     diff_y = row_axis[1] - row_axis[0]
 
     if diff_x > diff_y:
-        scale = (1.0, abs(diff_y/diff_x))
+        scale = (1.0, abs(diff_y / diff_x))
     else:
-        scale = (abs(diff_x/diff_y), 1.0)
+        scale = (abs(diff_x / diff_y), 1.0)
 
     axis_bottom = PgUserAxisItem(orientation='bottom')
-    axis_bottom.set_axis(col_axis[0], diff_x, 1.0/scale[0])
+    axis_bottom.set_axis(col_axis[0], diff_x, 1.0 / scale[0])
     axis_bottom.set_style(style)
 
     axis_left = PgUserAxisItem(orientation='left')
-    axis_left.set_axis(row_axis[0], diff_y, 1.0/scale[1])
+    axis_left.set_axis(row_axis[0], diff_y, 1.0 / scale[1])
     axis_left.set_style(style)
 
     view = pg.PlotItem(
-            title=title,
-            labels={'left': ylabel, 'bottom': xlabel},
-            axisItems={
-                'left': axis_left,
-                'bottom': axis_bottom}
-        )
+        title=title,
+        labels={'left': ylabel, 'bottom': xlabel},
+        axisItems={
+            'left': axis_left,
+            'bottom': axis_bottom}
+    )
 
     if style and ('title_font_size' in style and 'title_bold' in style):
-        view.setTitle(title, size=style['title_font_size'], bold=style['title_bold'])
+        view.setTitle(title, size=style['title_font_size'],
+                      bold=style['title_bold'])
     elif style and 'title_bold' in style:
         view.setTitle(title, bold=style['title_bold'])
     elif style and 'title_font_size' in style:
@@ -716,19 +780,23 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
 
     imv.set_scale(*scale)
     imv.set_axis(col_axis, row_axis)
+    imv.set_mouse_rect_mode()
+    imv.set_limit_view(col_axis, row_axis)
 
     imv.show()
 
-    imv.setImage(data, scale=scale, autoHistogramRange=False, autoLevels=False, levels=(np.min(data), np.max(data)))
+    imv.setImage(data, scale=scale, autoHistogramRange=False, autoLevels=False,
+                 levels=(np.min(data), np.max(data)))
 
     if colormap:
-        color_pos, color = _imagesc_pg_colormap(colormap)
+        color_pos, color = _imagescqt_colormap(colormap)
         if len(color) > 0:
-            imv.setColorMap(pg.ColorMap(color_pos, color, mode=pg.ColorMap.RGB))
+            imv.setColorMap(
+                pg.ColorMap(color_pos, color, mode=pg.ColorMap.RGB))
         else:
             print('check colormap')
 
-    imv.getImageItem().mouseDoubleClickEvent = imv.func_double_click
+    # imv.getImageItem().mouseDoubleClickEvent = imv.func_double_click
     imv.getImageItem().mouseClickEvent = imv.func_shift_left_click
 
     if colorbar:
@@ -736,4 +804,219 @@ def imagesc_pg(*arg, colormap='viridis', title='', xlabel='', ylabel='', colorba
     else:
         imv.ui.histogram.hide()
 
-    return imv
+    return imv, view
+
+
+class PlotItemWithMarker(pg.PlotItem):
+    """PlotItem에 Marker 기능을 추가한다."""
+
+    def __init__(self, **kargs):
+        super(PlotItemWithMarker, self).__init__(**kargs)
+        self.colors = ['#0072bd', '#d95319', '#edb120', '7e2f8e',
+                       '#77ac30', '#4dbeee', '#a2142f']
+        self.color_idx = 0
+        self.pen_width = 3
+        self.proxy = None  # mouse move event 처리를 위한 proxy
+        self.mouse_pos_x = 0
+        self.mouse_pos_y = 0
+
+    def plot(self, *args, **kargs):
+        """Override plot method of PlotItem."""
+
+        # Plot에 색깔 입력이 되지 않은 경우 색을 설정한다.
+        if 'pen' not in kargs or kargs['pen'] is None:
+            kargs['pen'] = pg.mkPen(self.colors[self.color_idx],
+                                    width=self.pen_width)
+            self.color_idx += 1
+            self.color_idx = self.color_idx % len(self.colors)
+
+        return super(PlotItemWithMarker, self).plot(*args, **kargs)
+
+    def mouseDoubleClickEvent(self, ev):
+        """Double Click 시 화면 배율을 초기화한다."""
+        self.autoRange()
+        super(PlotItemWithMarker, self).mouseDoubleClickEvent(ev)
+
+    def keyPressEvent(self, ev):
+        """Shift+S를 누르면 mouse Mode를 변경한다."""
+        if ((ev.key() == Qt.Key_S)
+                and (ev.modifiers() & Qt.ShiftModifier)):
+            if self.vb.state["mouseMode"] == self.vb.RectMode:
+                self.vb.setMouseMode(self.vb.PanMode)
+            else:
+                self.vb.setMouseMode(self.vb.RectMode)
+        else:
+            super(PlotItemWithMarker, self).keyPressEvent(ev)
+
+    def mouseMoved(self, ev, label_item):
+        """mouse 이동에 따른 위치 표시."""
+        pos = ev[0]  # using signal proxy turns original arguments into a tuple
+        if self.sceneBoundingRect().contains(pos):
+            mouse_point = self.vb.mapSceneToView(pos)
+            self.mouse_pos_x = mouse_point.x()
+            self.mouse_pos_y = mouse_point.y()
+            label_item.setText(f'x:{self.mouse_pos_x}, y:{self.mouse_pos_y}')
+
+    def set_mouseMoved_proxy(self, label):
+        """mouse 위치를 label에 표시하는 proxy 설정."""
+        self.proxy = pg.SignalProxy(
+            self.scene().sigMouseMoved, rateLimit=60,
+            slot=lambda event: self.mouseMoved(event, label))
+
+    def line_clicked(self, plot_data_item):
+        """line을 Shift키와 함께 click하면 marker를 표시한다."""
+        modifiers = QApplication.keyboardModifiers()
+        if modifiers == Qt.ShiftModifier:
+            x = plot_data_item.xData
+            y = plot_data_item.yData
+            if isinstance(x, ndarray) and isinstance(y, ndarray):
+                idx_near = (np.abs(x - self.mouse_pos_x)).argmin()
+
+                roi = pg.ROI(pos=(x[idx_near], y[idx_near]),
+                             movable=False, removable=True)
+
+                roi.addTranslateHandle((0.5, 0.5))
+                roi.setAcceptedMouseButtons(Qt.LeftButton)
+                text = pg.TextItem(
+                    html=(
+                            f'<span style="font-family: D2Conding ligature;">'
+                            + f'x {x[idx_near]:g}<br>y {y[idx_near]:g}<br>'
+                            + f'idx {idx_near}'
+                            + '</span>'
+                    ),
+                    border={'color': "222222", 'width': 1},
+                    anchor=(0.5, -0.5),
+                    fill=(250, 250, 255, 50))
+                text.setParentItem(roi)
+
+                arrow = pg.ArrowItem(angle=90)
+                arrow.setParentItem(roi)
+
+                roi.sigClicked.connect(self.roi_click)
+                roi.sigRemoveRequested.connect(self.roi_remove)
+
+                self.addItem(roi)
+
+    def roi_remove(self, roi):
+        """ROI를 제거한다."""
+        self.removeItem(roi)
+
+    def roi_click(self, roi, event):
+        """클릭된 ROI를 앞에 표시한다."""
+        for item in self.items:
+            if isinstance(item, pg.ROI):
+                item.setZValue(0)
+        roi.setZValue(1)
+
+
+def plotqt(*arg, title='', xlabel='', ylabel='', name='', pen=None,
+           grid=True, style=None, fig=None, ax=None):
+    """PyQtGraph를 이용하여 선을 그린다.
+
+    Parameters
+    ----------
+    title: str
+        title
+    xlabel : str
+        xlabel
+    ylabel : str
+        ylabel
+    name : str
+        범례에 들어갈 이름
+    color : str
+        linecolor
+    grid : bool
+        Grid
+    style : dict, optional
+        {'font_family': 'D2Coding ligature', 'title_font_size': '16pt', 'title_bold': True, 'label_font_size': '14pt', 'tick_font_size': 13, 'tick_thickness': 2, 'tickTextOffset': 5}
+    fig : pg.GraphicsWindow
+    ax : PlotItemWithMarker
+        PlotItem
+
+    Returns
+    -------
+    (pg.GraphicsWindow, PlotItemWithMarker)
+
+    """
+    pg.setConfigOption('background', 'w')
+    pg.setConfigOption('foreground', 'k')
+    if (len(arg) == 1) or isinstance(arg[1], str):
+        y = array(arg[0]).ravel()
+        x = arange(len(y))
+        title_idx = 1
+    elif len(arg) >= 2 and isinstance(arg[1], Iterable):
+        y = array(arg[1]).ravel()
+        x = array(arg[0]).ravel()
+        title_idx = 2
+    else:
+        print('Plz Check argument of plotqt')
+        return
+
+    try:
+        title = arg[title_idx]
+        xlabel = arg[title_idx + 1]
+        ylabel = arg[title_idx + 2]
+        name = arg[title_idx + 3]
+        pen = arg[title_idx + 4]
+        grid = arg[title_idx + 5]
+        style = arg[title_idx + 6]
+        fig = arg[title_idx + 7]
+        ax = arg[title_idx + 8]
+    except IndexError:
+        pass
+
+    style_default = {'font_family': 'D2Coding ligature',
+                     'title_font_size': '16pt',
+                     'title_bold': True, 'label_font_size': '14pt',
+                     'tick_font_size': 13, 'tick_thickness': 2,
+                     'tickTextOffset': 5}
+
+    if style is None:
+        style = style_default
+    else:
+        style_default.update(style)
+        style = style_default
+
+    if ax is not None:
+        curve = ax.plot(x=x, y=y, name=name, pen=pen, clickable=True)
+        curve.curve.setClickable(True)
+        curve.sigClicked.connect(ax.line_clicked)
+        return fig, ax
+
+    fig = pg.GraphicsWindow()
+
+    ax = PlotItemWithMarker()
+    fig.addItem(ax, 0, 0)
+
+    ax.addLegend()
+    curve = ax.plot(x=x, y=y, name=name, pen=pen, clickable=True)
+    curve.curve.setClickable(True)
+    curve.sigClicked.connect(ax.line_clicked)
+
+    label = pg.LabelItem(justify='right')
+    fig.addItem(label, 1, 0)
+
+    ax.setTitle(title, size=style['title_font_size'], bold=style['title_bold'])
+
+    labelStyle = {'font-family': style['font_family'],
+                  'font-size': style['label_font_size']}
+    ax.setLabel('left', ylabel, **labelStyle)
+    ax.setLabel('bottom', xlabel, **labelStyle)
+
+    font = QFont(style["font_family"], style["tick_font_size"])
+    ax.getAxis("bottom").tickFont = font
+    ax.getAxis("bottom").setStyle(tickTextOffset=style["tickTextOffset"])
+    ax.getAxis("bottom").setPen(pg.getConfigOption('foreground'),
+                                width=style['tick_thickness'])
+
+    ax.getAxis("left").tickFont = font
+    ax.getAxis("left").setStyle(tickTextOffset=style["tickTextOffset"])
+    ax.getAxis("left").setPen(pg.getConfigOption('foreground'),
+                              width=style['tick_thickness'])
+
+    if grid is True:
+        ax.showGrid(x=True, y=True, alpha=0.1)
+
+    ax.set_mouseMoved_proxy(label)
+
+    return fig, ax
