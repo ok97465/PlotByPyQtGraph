@@ -872,11 +872,25 @@ class PlotItemWithMarker(pg.PlotItem):
             if isinstance(x, ndarray) and isinstance(y, ndarray):
                 idx_near = (np.abs(x - self.mouse_pos_x)).argmin()
 
-                roi = pg.ROI(pos=(x[idx_near], y[idx_near]),
-                             movable=False, removable=True)
+                # calc radius
+                idx_prev = idx_near - 1
+                if idx_near == 0:
+                    idx_prev = 1
 
-                roi.addTranslateHandle((0.5, 0.5))
+                radius = min([abs(x[idx_near] - x[idx_prev]),
+                              abs(y[idx_near] - y[idx_prev])]) / 2
+
+                roi = pg.CircleROI(pos=(x[idx_near] - radius,
+                                        y[idx_near] - radius),
+                                   radius=radius,
+                                   movable=False,
+                                   removable=True)
+
                 roi.setAcceptedMouseButtons(Qt.LeftButton)
+
+                arrow = pg.ArrowItem(angle=90, pos=(radius, radius))
+                arrow.setParentItem(roi)
+
                 text = pg.TextItem(
                     html=(
                             f'<span style="font-family: D2Conding ligature;">'
@@ -888,9 +902,6 @@ class PlotItemWithMarker(pg.PlotItem):
                     anchor=(0.5, -0.5),
                     fill=(250, 250, 255, 50))
                 text.setParentItem(roi)
-
-                arrow = pg.ArrowItem(angle=90)
-                arrow.setParentItem(roi)
 
                 roi.sigClicked.connect(self.roi_click)
                 roi.sigRemoveRequested.connect(self.roi_remove)
