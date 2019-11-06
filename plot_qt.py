@@ -14,7 +14,7 @@ Notes
 References
 ----------
 .. [] 책: 저자명. (발행년). Title of chapter. In 편집자명 (역할), title of book (쪽). 발행지 : 발행사
-.. [] 학위 논문: 학위자명, "논문제목", 대학원 이름 석사 학위논문, 1990 
+.. [] 학위 논문: 학위자명, "논문제목", 대학원 이름 석사 학위논문, 1990
 .. [] 저널 논문: 저자. "논문제목". 저널명, . pp.
 
 :File name: plot_qt.py
@@ -25,9 +25,9 @@ import numpy as np
 import pyqtgraph as pg
 from typing import Tuple, Iterable
 from numpy import ndarray, linspace, array, arange
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import Qt, QPoint
+from PyQt5.QtGui import QFont, QKeySequence
+from PyQt5.QtWidgets import QApplication, QMenu, QAction
 
 
 def _cmapToColormap(cmap, nTicks=16):
@@ -447,6 +447,11 @@ class PgImageViewROI(pg.ImageView):
         self.ui.roiBtn.hide()
         self.ui.menuBtn.hide()
 
+        # menu creation is deferred because it is expensive and often
+        # the user will never see the menu anyway.
+        self.menu = None
+        self.view.mouseClickEvent = self.rightClickEvent
+
     def set_scale(self, scale_x: float, scale_y: float):
         self.scale_x = scale_x
         self.scale_y = scale_y
@@ -500,6 +505,51 @@ class PgImageViewROI(pg.ImageView):
         else:
             super(PgImageViewROI, self).keyPressEvent(ev)
 
+    def rightClickEvent(self, event):
+        if event.button() == Qt.RightButton:
+            if self.raiseContextMenu(event):
+                event.accept()
+
+    def raiseContextMenu(self, ev):
+        menu = self.getContextMenus()
+
+        pos = ev.screenPos()
+        menu.popup(QPoint(pos.x(), pos.y()))
+        return True
+
+    # This method will be called when this item's _children_ want to raise
+    # a context menu that includes their parents' menus.
+    def getContextMenus(self, event=None):
+        if self.menu is None:
+            self.menu = QMenu()
+            self.menu.setTitle(self.name + " options..")
+
+            view_all = QAction("View all", self.menu)
+            view_all.triggered.connect(self.view_all)
+            self.menu.addAction(view_all)
+            self.menu.view_all = view_all
+
+            toggle_aspect_mode = QAction("Locked aspect", self.menu,
+                                         checkable=True)
+            toggle_aspect_mode.triggered.connect(self.toggle_aspect_mode)
+            toggle_aspect_mode.setChecked(True)
+            self.menu.addAction(toggle_aspect_mode)
+            self.menu.toggle_aspect_mode = toggle_aspect_mode
+
+            toggle_click_mode = QAction("Mouse panmode", self.menu,
+                                        shortcut=QKeySequence("Shift+S"),
+                                        checkable=True)
+            toggle_click_mode.triggered.connect(self.toggle_mouse_mode)
+            self.menu.addAction(toggle_click_mode)
+            self.menu.toggle_mode = toggle_click_mode
+
+        if self.view.vb.state['mouseMode'] == self.view.vb.PanMode:
+            self.menu.toggle_mode.setChecked(True)
+        else:
+            self.menu.toggle_mode.setChecked(False)
+
+        return self.menu
+
     def func_shift_left_click(self, event):
         """Shift를 누르고 마우스 왼쪽을 클릭하면 Data Marker를 표시한다.
 
@@ -533,7 +583,6 @@ class PgImageViewROI(pg.ImageView):
                 pen=self.contrast_color(rgb_hex),
                 size=self.size_of_roi(), movable=False, removable=True)
 
-            roi.addTranslateHandle((0.5, 0.5))
             roi.setAcceptedMouseButtons(Qt.LeftButton)
             text = pg.TextItem(
                 html=(
@@ -573,13 +622,27 @@ class PgImageViewROI(pg.ImageView):
                 item.setZValue(0)
         roi.setZValue(1)
 
+    def view_all(self):
+        """이미지를 전체 뷰로 본다."""
+        self.view.autoRange()
+
     def mouseDoubleClickEvent(self, ev):
         """Double 클릭 시 이미지를 전체 뷰로 본다."""
         self.view.autoRange()
 
-    def set_mouse_rect_mode(self):
-        """Mouse 행동을 Rect모드로 변경한다."""
-        self.view.vb.setMouseMode(self.view.vb.RectMode)
+    def toggle_mouse_mode(self):
+        """Mouse 왼쪽 클릭 모드를 전환한다."""
+        if self.view.vb.state['mouseMode'] == self.view.vb.RectMode:
+            self.view.vb.setMouseMode(self.view.vb.PanMode)
+        else:
+            self.view.vb.setMouseMode(self.view.vb.RectMode)
+
+    def toggle_aspect_mode(self):
+        if self.view.vb.state['aspectLocked'] == False:
+            self.view.vb.setAspectLocked(True)
+        else:
+            self.view.vb.setAspectLocked(False)
+
 
     def set_limit_view(self, x_axis, y_axis):
         """Panning과 Scale의 한계를 지정한다."""
@@ -591,9 +654,7 @@ class PgImageViewROI(pg.ImageView):
             xMin=min(x_axis) - max_range,
             xMax=max(x_axis) + max_range,
             yMin=min(y_axis) - max_range,
-            yMax=max(y_axis) + max_range,
-            maxXRange=x_range + (x_axis[1] - x_axis[0]),
-            maxYRange=y_range + (y_axis[1] - y_axis[0]))
+            yMax=max(y_axis) + max_range)
 
 
 class PgUserAxisItem(pg.AxisItem):
@@ -780,8 +841,8 @@ def imagescqt(*arg, colormap='viridis', title='', xlabel='', ylabel='',
 
     imv.set_scale(*scale)
     imv.set_axis(col_axis, row_axis)
-    imv.set_mouse_rect_mode()
-    imv.set_limit_view(col_axis, row_axis)
+    imv.toggle_mouse_mode()
+    # imv.set_limit_view(col_axis, row_axis)
 
     imv.show()
 
@@ -892,12 +953,10 @@ class PlotItemWithMarker(pg.PlotItem):
                 arrow.setParentItem(roi)
 
                 text = pg.TextItem(
-                    html=(
-                            f'<span style="font-family: D2Conding ligature;">'
-                            + f'x {x[idx_near]:g}<br>y {y[idx_near]:g}<br>'
-                            + f'idx {idx_near}'
-                            + '</span>'
-                    ),
+                    html=(f'<span style="font-family: D2Conding ligature;">'
+                          + f'x {x[idx_near]:g}<br>y {y[idx_near]:g}<br>'
+                          + f'idx {idx_near}'
+                          + '</span>'),
                     border={'color': "222222", 'width': 1},
                     anchor=(0.5, -0.5),
                     fill=(250, 250, 255, 50))
