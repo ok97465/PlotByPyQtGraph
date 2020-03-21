@@ -4,11 +4,12 @@ import pyqtgraph as pg
 from matplotlib.pyplot import imread, ion, plot, close
 from plot_qt import imagescqt, plotqt
 from numpy import arange, mean, linspace
-from numpy.random_intel import randn
+from numpy.random import randn
 
 ion()
-plot([1,2,3])
+plot([1, 2, 3])
 close()
+
 
 def plot_image():
     data = imread(r'images/example_imagesc_color.jpg')

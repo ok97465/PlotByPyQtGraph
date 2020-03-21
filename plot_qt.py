@@ -13,7 +13,7 @@ Notes
 
 References
 ----------
-.. [] 책: 저자명. (발행년). Title of chapter. In 편집자명 (역할), title of book (쪽). 발행지 : 발행사
+.. [] 책: 저자명. (년). 챕터명. In 편집자명 (역할), 책명 (쪽). 발행지 : 발행사
 .. [] 학위 논문: 학위자명, "논문제목", 대학원 이름 석사 학위논문, 1990
 .. [] 저널 논문: 저자. "논문제목". 저널명, . pp.
 
@@ -67,7 +67,7 @@ def _cmapToColormap(cmap, nTicks=16):
             for idx, channel in enumerate(('red', 'green', 'blue')):
                 for colorRange in colordata[channel]:
                     posDict.setdefault(colorRange[0], [-1, -1, -1])[idx] = \
-                    colorRange[2]
+                        colorRange[2]
 
             indexList = list(posDict.keys())
             indexList.sort()
@@ -99,7 +99,7 @@ def _cmapToColormap(cmap, nTicks=16):
             indices = np.linspace(0., 1., nTicks)
             luts = [
                 np.clip(np.array(colordata[rgb](indices), dtype=np.float), 0,
-                        1) * 255 \
+                        1) * 255
                 for rgb in ('red', 'green', 'blue')]
             rgb_list = zip(indices, list(zip(*luts)))
 
@@ -586,18 +586,18 @@ class PgImageViewROI(pg.ImageView):
             roi.setAcceptedMouseButtons(Qt.LeftButton)
             text = pg.TextItem(
                 html=(
-                        f'<span style="font-family: {self.font_family};">' +
-                        self.html_of_data_marker_name('PIXEL[X,Y]') +
-                        self.html_of_data_marker_value(
-                            f'[{data_point_x} {data_point_y}]') + '<br>' +
-                        self.html_of_data_marker_name('AXIS [X,Y]') +
-                        self.html_of_data_marker_value(
-                            f'[{self.axis_x[data_point_x]:6g} {self.axis_y[data_point_y]:6g}]') + '<br>' +
-                        self.html_of_data_marker_name('Value') +
-                        self.html_of_data_marker_value(val_point) + '<br>' +
-                        self.html_of_data_marker_name('[R,G,B]') +
-                        self.html_of_data_marker_value(rgb) +
-                        '</span>'
+                    f'<span style="font-family: {self.font_family};">' +
+                    self.html_of_data_marker_name('PIXEL[X,Y]') +
+                    self.html_of_data_marker_value(
+                        f'[{data_point_x} {data_point_y}]') + '<br>' +
+                    self.html_of_data_marker_name('AXIS [X,Y]') +
+                    self.html_of_data_marker_value(
+                        f'[{self.axis_x[data_point_x]:6g} {self.axis_y[data_point_y]:6g}]') + '<br>' +
+                    self.html_of_data_marker_name('Value') +
+                    self.html_of_data_marker_value(val_point) + '<br>' +
+                    self.html_of_data_marker_name('[R,G,B]') +
+                    self.html_of_data_marker_value(rgb) +
+                    '</span>'
                 ),
                 border={'color': "000000", 'width': 1},
                 anchor=(0, 1),
@@ -643,7 +643,6 @@ class PgImageViewROI(pg.ImageView):
         else:
             self.view.vb.setAspectLocked(False)
 
-
     def set_limit_view(self, x_axis, y_axis):
         """Panning과 Scale의 한계를 지정한다."""
         x_range = max(x_axis) - min(x_axis)
@@ -673,9 +672,9 @@ class PgUserAxisItem(pg.AxisItem):
 
     def custom_range(self, newRange, inverted: bool):
         value_first = newRange[
-                          0] * self.delta + self.value_of_view_axis_0 + self.offset
+            0] * self.delta + self.value_of_view_axis_0 + self.offset
         value_end = newRange[
-                        1] * self.delta + self.value_of_view_axis_0 + self.offset
+            1] * self.delta + self.value_of_view_axis_0 + self.offset
 
         if inverted:
             return value_end, value_first
