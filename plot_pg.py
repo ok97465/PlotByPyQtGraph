@@ -684,7 +684,7 @@ class PgImageViewROI(pg.ImageView):
                 if isinstance(text_item, PgTextItem):
                     font = text_item.textItem.font()
                     font.setPointSize(font_size)
-                    text_item.textItem.setFont(font)
+                    text_item.setFont(font)
 
     def view_all(self):
         """이미지를 전체 뷰로 본다."""
