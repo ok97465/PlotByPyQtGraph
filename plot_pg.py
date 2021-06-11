@@ -23,6 +23,7 @@ References
 """
 # Standard library imports
 import collections
+import sys
 from typing import Iterable, List, Tuple, Optional
 
 # Third party imports
@@ -32,9 +33,9 @@ from matplotlib import cm
 from matplotlib.colors import Colormap
 from numpy import arange, array, clip, linspace, ndarray
 from numpy.core.numerictypes import float64
-from PyQt5.QtCore import QPoint, Qt
-from PyQt5.QtGui import QFont, QKeySequence
-from PyQt5.QtWidgets import QAction, QApplication, QMenu
+from qtpy.QtCore import QPoint, Qt, Signal, Slot
+from qtpy.QtGui import QFont, QKeySequence
+from qtpy.QtWidgets import QAction, QApplication, QMenu
 
 
 def _cmapToColormap(cmap: Colormap, nticks: int = 16
@@ -430,11 +431,46 @@ def _get_colormap(colormap_str: str
     return pos, colors
 
 
-class PgImageViewROI(pg.ImageView):
-    r"""ImageView 에 Mouse 명령을 추가 한다."""
+class PgTextItem(pg.TextItem):
+    """PyQtGraph의 TextItem에서 Mouse event를 override한다."""
+
+    sig_change_font_size = Signal(int)
 
     def __init__(self, *args, **kwargs):
-        r"""PgImageViewOk를 초기화한다."""
+        """."""
+        super().__init__(*args, **kwargs)
+
+    def mouseClickEvent(self, event):
+        """Override Qt function."""
+        event.accept()
+
+    def mouseDoubleClickEvent(self, event):
+        """Override Qt function."""
+        event.accept()
+
+    def wheelEvent(self, event):
+        """Adjust font size."""
+        delta = event.delta()
+        font = self.textItem.font()
+        font_size = font.pointSize()
+
+        if delta > 0:
+            font_size += 1
+        else:
+            font_size -= 1
+        font_size = max([1, font_size])
+
+        self.sig_change_font_size.emit(font_size)
+        # font.setPointSize(font_size)
+        # self.setFont(font)
+        event.accept()
+
+
+class PgImageViewROI(pg.ImageView):
+    """ImageView 에 Mouse 명령을 추가 한다."""
+
+    def __init__(self, *args, **kwargs):
+        """PgImageViewOk를 초기화한다."""
         super().__init__(*args, **kwargs)
         self.font_family: str = 'Courier New'
         self.font_size: str = '4'
@@ -595,7 +631,7 @@ class PgImageViewROI(pg.ImageView):
                 size=self.size_of_roi(), movable=False, removable=True)
 
             roi.setAcceptedMouseButtons(Qt.LeftButton)
-            text = pg.TextItem(
+            text = PgTextItem(
                 html=(
                     f'<span style="font-family: {self.font_family};">'
                     + self.html_of_data_marker_name('PIXEL[X,Y]')
@@ -617,6 +653,7 @@ class PgImageViewROI(pg.ImageView):
                 border={'color': "000000", 'width': 1},
                 anchor=(0, 1),
                 fill=(250, 250, 255, 255))
+            text.sig_change_font_size.connect(self.change_roi_font_size)
             text.setParentItem(roi)
             roi.sigClicked.connect(self.roi_click)
             roi.sigRemoveRequested.connect(self.roi_remove)
@@ -636,6 +673,18 @@ class PgImageViewROI(pg.ImageView):
             if isinstance(item, pg.ROI):
                 item.setZValue(0)
         roi.setZValue(1)
+
+    @Slot(int)
+    def change_roi_font_size(self, font_size: int):
+        """모든 ROI의 PgTextItem 글씨 크기를 변경한다."""
+        for roi in self.view.items:
+            if isinstance(roi, pg.ROI) is False:
+                continue
+            for text_item in roi.allChildItems():
+                if isinstance(text_item, PgTextItem):
+                    font = text_item.textItem.font()
+                    font.setPointSize(font_size)
+                    text_item.textItem.setFont(font)
 
     def view_all(self):
         """이미지를 전체 뷰로 본다."""
@@ -827,7 +876,6 @@ def imagescpg(*arg, colormap: str = 'viridis', title: str = '',
         style = style_default
 
     if colormap and data.ndim > 2:
-        import sys
         print('Ignored colormap (data ndim > 2)', file=sys.stderr)
         colormap = None
 
@@ -899,7 +947,7 @@ class PlotItemWithMarker(pg.PlotItem):
 
     def __init__(self, **kargs):
         """Init."""
-        super(PlotItemWithMarker, self).__init__(**kargs)
+        super().__init__(**kargs)
         self.colors = ['#0072bd', '#d95319', '#edb120', '7e2f8e',
                        '#77ac30', '#4dbeee', '#a2142f']
         self.color_idx = 0
@@ -922,7 +970,7 @@ class PlotItemWithMarker(pg.PlotItem):
     def mouseDoubleClickEvent(self, ev):
         """Double Click 시 화면 배율을 초기화한다."""
         self.autoRange()
-        super(PlotItemWithMarker, self).mouseDoubleClickEvent(ev)
+        super().mouseDoubleClickEvent(ev)
 
     def keyPressEvent(self, ev):
         """Shift+S를 누르면 mouse Mode를 변경한다."""
