@@ -71,5 +71,5 @@ def plot_1d():
 if __name__ == '__main__':
     QAPP = pg.mkQApp()
     fig = plot_image()
-    QAPP.exec()
     # fig, ax = plot_1d()
+    QAPP.exec()

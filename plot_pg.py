@@ -24,14 +24,14 @@ References
 # Standard library imports
 import collections
 import sys
-from typing import Iterable, List, Tuple, Optional
+from typing import Iterable, List, Optional, Tuple
 
 # Third party imports
 import numpy as np
 import pyqtgraph as pg
 from matplotlib import cm
 from matplotlib.colors import Colormap
-from numpy import arange, array, clip, linspace, ndarray
+from numpy import arange, argmin, array, clip, linspace, ndarray
 from numpy.core.numerictypes import float64
 from qtpy.QtCore import QPoint, Qt, Signal, Slot
 from qtpy.QtGui import QFont, QKeySequence
@@ -118,7 +118,7 @@ def _cmapToColormap(cmap: Colormap, nticks: int = 16
         colordata = getattr(cmap, 'colors')
         # Case #3: a list with RGB values (e.g. 'seismic')
         if len(colordata[0]) == 3:
-            indices = np.linspace(0., 1., len(colordata))
+            indices = linspace(0., 1., len(colordata))
             scaledRgbTuples = [
                 (rgbTuple[0] * 255, rgbTuple[1] * 255, rgbTuple[2] * 255) for
                 rgbTuple in colordata]
@@ -440,12 +440,42 @@ class PgTextItem(pg.TextItem):
         """."""
         super().__init__(*args, **kwargs)
 
+    def updateTextPos(self):
+        """Text Pos 계산 시 Parent 크기를 고려한다."""
+        # update text position to obey anchor
+        txt_rect = self.textItem.boundingRect()
+        txt_tl = self.textItem.mapToParent(txt_rect.topLeft())
+        txt_br = self.textItem.mapToParent(txt_rect.bottomRight())
+        offset = (txt_br - txt_tl) * self.anchor
+
+        # ROI의 Rect 크기를 반영한다.
+        parent = self.parentItem()
+        if parent:
+            pixel_width = parent.pixelWidth()
+            pixel_height = parent.pixelHeight()
+            parent_width, parent_height = parent.size()
+            if self.anchor[1] == 1:
+                offset.setY(offset.y() - parent_height / pixel_height)
+            if self.anchor[0] == 1:
+                offset.setX(offset.x() - parent_width / pixel_width)
+        # ROI의 Rect 크기를 반영한다 끝.
+
+        self.textItem.setPos(-offset)
+
     def mouseClickEvent(self, event):
-        """Override Qt function."""
+        """TextItem Click시 Text Item 위치를 변경한다."""
+        cur_anchor = (int(self.anchor[0]), int(self.anchor[1]))
+        next_anchor = {
+            (1, 1): (0, 1),
+            (0, 1): (0, 0),
+            (0, 0): (1, 0),
+            (1, 0): (1, 1),
+        }
+        self.setAnchor(next_anchor[cur_anchor])
         event.accept()
 
     def mouseDoubleClickEvent(self, event):
-        """Override Qt function."""
+        """TextItem double click시 View가 reset되는 것을 방지한다."""
         event.accept()
 
     def wheelEvent(self, event):
@@ -461,8 +491,6 @@ class PgTextItem(pg.TextItem):
         font_size = max([1, font_size])
 
         self.sig_change_font_size.emit(font_size)
-        # font.setPointSize(font_size)
-        # self.setFont(font)
         event.accept()
 
 
@@ -522,16 +550,20 @@ class PgImageViewROI(pg.ImageView):
     @staticmethod
     def contrast_color(rgb_hex: str):
         r"""배경색에서 잘보이는 색을 선택."""
-        luminance = (0.299 * int(rgb_hex[4:6], 16)
-                     + 0.587 * int(rgb_hex[6:8], 16)
-                     + 0.114 * int(rgb_hex[8:], 16)) / 255
+        rgb_in = array((int(rgb_hex[4:6], 16),
+                        int(rgb_hex[6:8], 16),
+                        int(rgb_hex[8:], 16)))
+        rgb_out = array([0, 0, 0])
+        rgb_std = rgb_in.std()
+        rgb_min = rgb_in.min()
+        rgb_min_idx = argmin(rgb_in)
 
-        if luminance > 0.5:
-            d = 30  # bright background - black color
-        else:
-            d = 200  # dark background - white color
+        if rgb_min < 180:
+            rgb_out[rgb_min_idx] = 230
+        elif rgb_std < 20:
+            rgb_out[0] = 230
 
-        return d, d, d
+        return rgb_out[0], rgb_out[1], rgb_out[2]
 
     def keyPressEvent(self, ev):
         """Shift+S를 누르면 mouse Mode를 변경한다."""
@@ -542,7 +574,7 @@ class PgImageViewROI(pg.ImageView):
             else:
                 self.view.vb.setMouseMode(self.view.vb.RectMode)
         else:
-            super(PgImageViewROI, self).keyPressEvent(ev)
+            super().keyPressEvent(ev)
 
     def rightClickEvent(self, event):
         """Handle rightClick."""
@@ -629,6 +661,7 @@ class PgImageViewROI(pg.ImageView):
                 pos=self.pos_of_roi(data_point_x, data_point_y),
                 pen=self.contrast_color(rgb_hex),
                 size=self.size_of_roi(), movable=False, removable=True)
+            roi.setPen(color=self.contrast_color(rgb_hex), width=4.5)
 
             roi.setAcceptedMouseButtons(Qt.LeftButton)
             text = PgTextItem(
@@ -921,7 +954,7 @@ def imagescpg(*arg, colormap: str = 'viridis', title: str = '',
     imv.show()
 
     imv.setImage(data, scale=scale, autoHistogramRange=False, autoLevels=False,
-                 levels=(np.min(data), np.max(data)))
+                 levels=(data.min(), data.max()))
 
     if colormap:
         color_pos, color = _get_colormap(colormap)
@@ -1163,3 +1196,20 @@ def plotpg(*arg, title: str = '', xlabel: str = '', ylabel: str = '',
     ax.set_mouseMoved_proxy(label)
 
     return fig, ax
+
+
+if __name__ == '__main__':
+    from numpy import arange
+    from mkl_random import randn
+    QAPP = pg.mkQApp()
+
+    data = randn(2048, 2048)
+    x = arange(data.shape[1]) * 5
+    y = arange(data.shape[0]) * 1
+    imv_gray0 = imagescpg(
+        x, y, data,
+        colormap='gray', title='Gray Image with gray Colormap',
+        xlabel='Column', ylabel='Row', colorbar=True)
+
+    QAPP.exec()
+    # fig, ax = plot_1d()
