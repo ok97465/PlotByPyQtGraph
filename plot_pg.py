@@ -24,6 +24,7 @@ References
 # Standard library imports
 import collections
 import sys
+import os.path as osp
 from typing import Iterable, List, Optional, Tuple
 
 # Third party imports
@@ -34,7 +35,7 @@ from matplotlib.colors import Colormap
 from numpy import arange, argmin, array, clip, linspace, ndarray
 from numpy.core.numerictypes import float64
 from qtpy.QtCore import QPoint, Qt, Signal, Slot
-from qtpy.QtGui import QFont, QKeySequence
+from qtpy.QtGui import QFont, QKeySequence, QFileDialog
 from qtpy.QtWidgets import QAction, QApplication, QMenu
 
 
@@ -567,8 +568,9 @@ class PgImageViewROI(pg.ImageView):
 
     def keyPressEvent(self, ev):
         """Shift+S를 누르면 mouse Mode를 변경한다."""
-        if ((ev.key() == Qt.Key_S)
-                and (ev.modifiers() & Qt.ShiftModifier)):
+        key = ev.key()
+        shift_pressed = ev.modifiers() & Qt.ShiftModifier
+        if key == Qt.Key_S and shift_pressed:
             if self.view.vb.state["mouseMode"] == self.view.vb.RectMode:
                 self.view.vb.setMouseMode(self.view.vb.PanMode)
             else:
@@ -587,8 +589,25 @@ class PgImageViewROI(pg.ImageView):
         menu = self.getContextMenus()
 
         pos = ev.screenPos()
-        menu.popup(QPoint(pos.x(), pos.y()))
+        menu.popup(QPoint(int(pos.x()), int(pos.y())))
         return True
+
+    def export_view_clicked(self):
+        """Export view."""
+        self.scene.contextMenuItem = self.view
+        self.scene.showExportDialog()
+
+    def export_data_as_img_clicked(self):
+        """Export data as image."""
+        filename = QFileDialog.getSaveFileName(self, "저장할 이미지 이름 선택",
+                                               "", "PNG (*.png)")
+        if isinstance(filename, tuple):
+            filename = filename[0]  # Qt4/5 API difference
+        if filename == '':
+            return
+        if osp.splitext(filename)[1] != ".png":
+            filename += ".png"
+        self.export(filename)
 
     # This method will be called when this item's _children_ want to raise
     # a context menu that includes their parents' menus.
@@ -621,6 +640,16 @@ class PgImageViewROI(pg.ImageView):
             toggle_click_mode.triggered.connect(self.toggle_mouse_mode)
             self.menu.addAction(toggle_click_mode)
             self.menu.toggle_mode = toggle_click_mode
+
+            export_view = QAction("Export View", self.menu)
+            export_view.setToolTip("Axis와 Marker를 포함한 화면을 캡쳐한다.")
+            export_view.triggered.connect(self.export_view_clicked)
+            self.menu.addAction(export_view)
+
+            export_img = QAction("Export data as png", self.menu)
+            export_img.setToolTip("Imagesc의 Data 원본을 Image 파일로 저장한다.")
+            export_img.triggered.connect(self.export_data_as_img_clicked)
+            self.menu.addAction(export_img)
 
         if self.view.vb.state['mouseMode'] == self.view.vb.PanMode:
             self.menu.toggle_mode.setChecked(True)
@@ -1007,14 +1036,15 @@ class PlotItemWithMarker(pg.PlotItem):
 
     def keyPressEvent(self, ev):
         """Shift+S를 누르면 mouse Mode를 변경한다."""
-        if ((ev.key() == Qt.Key_S)
-                and (ev.modifiers() & Qt.ShiftModifier)):
+        key = ev.key()
+        shift_pressed = ev.modifiers & Qt.ShiftModifier
+        if key == Qt.Key_S and shift_pressed:
             if self.vb.state["mouseMode"] == self.vb.RectMode:
                 self.vb.setMouseMode(self.vb.PanMode)
             else:
                 self.vb.setMouseMode(self.vb.RectMode)
         else:
-            super(PlotItemWithMarker, self).keyPressEvent(ev)
+            super().keyPressEvent(ev)
 
     def mouseMoved(self, ev, label_item):
         """Mouse 이동에 따른 위치 표시."""
