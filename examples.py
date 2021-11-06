@@ -40,7 +40,7 @@ def plot_image():
 
     imv_gray1 = imagescpg(
         data,
-        'parula', 'Gray Image with parula Colormap', 'Column', 'Row', False)
+        'turbo', 'Gray Image with turbo Colormap', 'Column', 'Row', False)
 
     imv_gray2 = imagescpg(
         x, y, data,
