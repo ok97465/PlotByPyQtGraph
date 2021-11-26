@@ -470,7 +470,7 @@ class PgUserAxisItem(pg.AxisItem):
 
 def imagescpg(
     *arg,
-    colormap: str = "viridis",
+    cmap: str = "viridis",
     title: str = "",
     xlabel: str = "",
     ylabel: str = "",
@@ -482,7 +482,7 @@ def imagescpg(
     return을 받지 않으면 figure 창이 사라진다.
 
     Args:
-      colormap : ['Grey', 'Grey_r', ,'jet', 'parula', 'viridis', ..., None]
+      cmap : ['Grey', 'Grey_r', ,'jet', 'parula', 'viridis', ..., None]
         (the default is 'viridis')
       title :  title
       xlabel : xlabel
@@ -506,20 +506,18 @@ def imagescpg(
     pg.setConfigOption("foreground", "k")
     pg.setConfigOptions(imageAxisOrder="row-major")
 
-    if (len(arg) == 1) or isinstance(arg[1], str) or arg[1] is None:
+    if len(arg) == 1:
         data = arg[0]
         nr = data.shape[0]
         nc = data.shape[1]
         col_axis = arange(nc)
         row_axis = arange(nr)
-        title_idx = 1
-    elif len(arg) >= 3 and isinstance(arg[2], ndarray):
+    elif len(arg) == 3:
         data = arg[2]
         nr = data.shape[0]
         nc = data.shape[1]
         col_axis = arg[0]
         row_axis = arg[1]
-        title_idx = 3
     else:
         print("Plz Check argument of imagescpg")
         return
@@ -527,16 +525,6 @@ def imagescpg(
     if len(col_axis) != nc or len(row_axis) != nr:
         print("check size of axis and data")
         return
-
-    try:
-        colormap = arg[title_idx]
-        title = arg[title_idx + 1]
-        xlabel = arg[title_idx + 2]
-        ylabel = arg[title_idx + 3]
-        colorbar = arg[title_idx + 4]
-        style = arg[title_idx + 5]
-    except IndexError:
-        pass
 
     style_default = {
         "font_family": "D2Coding ligature",
@@ -554,9 +542,9 @@ def imagescpg(
         style_default.update(style)
         style = style_default
 
-    if colormap and data.ndim > 2:
+    if cmap and data.ndim > 2:
         print("Ignored colormap (data ndim > 2)", file=sys.stderr)
-        colormap = None
+        cmap = ""
 
     diff_x = col_axis[1] - col_axis[0]
     diff_y = row_axis[1] - row_axis[0]
@@ -604,14 +592,14 @@ def imagescpg(
         levels=(data.min(), data.max()),
     )
 
-    if colormap:
-        if colormap in pg.colormap.listMaps():
-            cmap = pg.colormap.get(colormap)
-        elif colormap in pg.colormap.listMaps("matplotlib"):
-            cmap = pg.colormap.get(colormap, source="matplotlib", skipCache=True)
+    if cmap:
+        if cmap in pg.colormap.listMaps():
+            colormap = pg.colormap.get(cmap)
+        elif cmap in pg.colormap.listMaps("matplotlib"):
+            colormap = pg.colormap.get(cmap, source="matplotlib", skipCache=True)
         else:
-            cmap = None
-        imv.setColorMap(cmap)
+            colormap = None
+        imv.setColorMap(colormap)
 
     # imv.getImageItem().mouseDoubleClickEvent = imv.func_double_click
     imv.getImageItem().mouseClickEvent = imv.func_shift_left_click
@@ -791,30 +779,15 @@ def plotpg(
     """
     pg.setConfigOption("background", "w")
     pg.setConfigOption("foreground", "k")
-    if (len(arg) == 1) or isinstance(arg[1], str):
+    if len(arg) == 1:
         y = array(arg[0]).ravel()
         x = arange(len(y))
-        title_idx = 1
-    elif len(arg) >= 2 and isinstance(arg[1], Iterable):
+    elif len(arg) == 2:
         y = array(arg[1]).ravel()
         x = array(arg[0]).ravel()
-        title_idx = 2
     else:
         print("Plz Check argument of plotqt")
         return
-
-    try:
-        title = arg[title_idx]
-        xlabel = arg[title_idx + 1]
-        ylabel = arg[title_idx + 2]
-        name = arg[title_idx + 3]
-        pen = arg[title_idx + 4]
-        grid = arg[title_idx + 5]
-        style = arg[title_idx + 6]
-        fig = arg[title_idx + 7]
-        ax = arg[title_idx + 8]
-    except IndexError:
-        pass
 
     style_default = {
         "font_family": "D2Coding ligature",
@@ -882,7 +855,6 @@ def plotpg(
 
 
 if __name__ == "__main__":
-    from numpy import arange
     from mkl_random import randn
 
     QAPP = pg.mkQApp()
@@ -894,7 +866,7 @@ if __name__ == "__main__":
         x,
         y,
         data,
-        colormap="viridis",
+        cmap="viridis",
         title="Gray Image with gray Colormap",
         xlabel="Column",
         ylabel="Row",
@@ -902,4 +874,3 @@ if __name__ == "__main__":
     )
 
     QAPP.exec()
-    # fig, ax = plot_1d()
